@@ -4,6 +4,7 @@ import os
 import math
 import sys
 import datetime
+import json
 
 WORD_COUNTS = 'WORD_COUNTS'
 TAG_COUNTS = 'TAG_COUNTS'
@@ -21,8 +22,8 @@ data[END_TAG_COUNTS] = {}
 def train_model(train_file, model_file):
     # write your code here. You can add functions as well.
 
-    with open(train_file) as f:
-        lines = f.readlines();
+    with open(train_file) as rf:
+        lines = rf.readlines()
         for line in lines:
             words_with_tags = line.rstrip().split(' ')
             words = [word_with_tag.rsplit('/', 1)[0].lower()
@@ -45,7 +46,9 @@ def train_model(train_file, model_file):
                         data[TAG_BICOUNTS][tags[i]][tags[i + 1]] = 1
                 else: # is last word
                     data[END_TAG_COUNTS][tags[i]] = data[END_TAG_COUNTS].get(tags[i], 0) + 1
-        print(data[WORD_COUNTS])
+    with open(model_file, 'w') as wf:
+        json_obj = json.dumps(data, indent=2)
+        wf.write(json_obj)
     print('Finished...')
 
 if __name__ == "__main__":
