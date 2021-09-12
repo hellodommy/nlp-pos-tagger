@@ -24,12 +24,12 @@ def train_model(train_file, model_file):
     with open(train_file) as f:
         lines = f.readlines();
         for line in lines:
-            words_with_tags = line.split(' ')
+            words_with_tags = line.rstrip().split(' ')
             words = [word_with_tag.rsplit('/', 1)[0].lower()
                      for word_with_tag in words_with_tags]
             tags = [word_with_tag.rsplit('/', 1)[1]
                      for word_with_tag in words_with_tags]
-            for i in range(len(words_with_tags) - 1):
+            for i in range(len(words_with_tags)):
                 data[WORD_COUNTS][words[i]] = data[WORD_COUNTS].get(words[i], 0) + 1
                 data[TAG_COUNTS][tags[i]] = data[TAG_COUNTS].get(tags[i], 0) + 1
                 if words[i] in data[WORD_TAG_COUNTS]:
@@ -37,7 +37,15 @@ def train_model(train_file, model_file):
                 else:
                     data[WORD_TAG_COUNTS][words[i]] = {}
                     data[WORD_TAG_COUNTS][words[i]][tags[i]] = 1
-        print(data[WORD_TAG_COUNTS])
+                if i != len(words_with_tags) - 1: # if not last word
+                    if tags[i] in data[TAG_BICOUNTS]:
+                        data[TAG_BICOUNTS][tags[i]][tags[i + 1]] = data[TAG_BICOUNTS][tags[i]].get(tags[i + 1], 0) + 1
+                    else:
+                        data[TAG_BICOUNTS][tags[i]] = {}
+                        data[TAG_BICOUNTS][tags[i]][tags[i + 1]] = 1
+                else: # is last word
+                    data[END_TAG_COUNTS][tags[i]] = data[END_TAG_COUNTS].get(tags[i], 0) + 1
+        print(data[WORD_COUNTS])
     print('Finished...')
 
 if __name__ == "__main__":
