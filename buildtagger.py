@@ -72,6 +72,7 @@ data[WORD_TAG_COUNTS] = {}
 data[TAG_BICOUNTS][START_TAG] = {}
 data[TAG_BICOUNTS][END_TAG] = {}
 data[TAG_BICOUNT_PROBS] = {}
+data[WORD_TAG_PROBS] = {}
 
 def train_model(train_file, model_file):
     # write your code here. You can add functions as well.
@@ -107,15 +108,26 @@ def train_model(train_file, model_file):
         # add-one smoothing for tag bigrams
         # assumes first_tag includes all tags
         # todo: add unseen first_tag
-        for first_tag in data[TAG_BICOUNTS]: 
+        for first_tag in data[TAG_BICOUNTS]: # seen tag bigrams
             data[TAG_BICOUNT_PROBS][first_tag] = {}
             for second_tag in data[TAG_BICOUNTS][first_tag]:
                 data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((data[TAG_BICOUNTS][first_tag][second_tag] + 1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)
-        for first_tag in data[TAG_BICOUNTS]:
+        for first_tag in data[TAG_BICOUNTS]: # unseen tag bigrams
             for second_tag in TAGS:
                 if second_tag not in data[TAG_BICOUNTS][first_tag]:
                     data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)
-        print(data[TAG_BICOUNT_PROBS])
+        # add-one smoothing for word-tag bigrams
+        for word in data[WORD_COUNTS]: # seen word-tags
+            data[WORD_TAG_PROBS][word] = {}
+            for tag in TAGS:
+                if tag in data[WORD_TAG_COUNTS][word]:
+                    data[WORD_TAG_PROBS][word][tag] = math.log(((data[WORD_TAG_COUNTS][word][tag] + 1)/(data[TAG_COUNTS][tag] + NUM_PENN_TAGS)), 10)
+                else:
+                    data[WORD_TAG_PROBS][word][tag] = math.log((1/(data[TAG_COUNTS][tag] + NUM_PENN_TAGS)), 10)
+        data[WORD_TAG_PROBS][UNK] = {} # unseen word-tags
+        for tag in TAGS:
+            data[WORD_TAG_PROBS][UNK][tag] = math.log((1/(data[TAG_COUNTS][tag] + NUM_PENN_TAGS)), 10)
+
     with open(model_file, 'w') as wf:
         json_obj = json.dumps(data, indent=2)
         wf.write(json_obj)
