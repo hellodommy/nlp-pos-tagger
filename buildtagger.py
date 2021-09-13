@@ -111,11 +111,17 @@ def train_model(train_file, model_file):
         for first_tag in data[TAG_BICOUNTS]: # seen tag bigrams
             data[TAG_BICOUNT_PROBS][first_tag] = {}
             for second_tag in data[TAG_BICOUNTS][first_tag]:
-                data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((data[TAG_BICOUNTS][first_tag][second_tag] + 1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)
+                if first_tag == END_TAG:
+                    data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((data[TAG_BICOUNTS][first_tag][second_tag] + 1)/(data[TAG_COUNTS][second_tag] + NUM_PENN_TAGS)), 10)
+                else:
+                    data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((data[TAG_BICOUNTS][first_tag][second_tag] + 1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)
         for first_tag in data[TAG_BICOUNTS]: # unseen tag bigrams
             for second_tag in TAGS:
                 if second_tag not in data[TAG_BICOUNTS][first_tag]:
-                    data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)
+                    if first_tag == END_TAG:
+                        data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)              
+                    else:
+                        data[TAG_BICOUNT_PROBS][first_tag][second_tag] = math.log(((1)/(data[TAG_COUNTS][first_tag] + NUM_PENN_TAGS)), 10)
         # add-one smoothing for word-tag bigrams
         for word in data[WORD_COUNTS]: # seen word-tags
             data[WORD_TAG_PROBS][word] = {}
