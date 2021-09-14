@@ -98,32 +98,38 @@ def tag_sentence(test_file, model_file, out_file):
                     word_tokens[i].transition_probs[tag] = best_prob + data[WORD_TAG_PROBS][curr_word][tag]
                     curr_backpointers[tag] = best_tag
                 backpointers.append(curr_backpointers)
+
             # termination
-            final_best_prob = sys.maxsize
+            # finding the final best tag
             final_best_tag = ""
+            final_best_prob = - sys.maxsize - 1
             for tag in TAGS:
                 curr_prob = word_tokens[len(word_tokens)-1].transition_probs[tag] + data[TAG_BICOUNT_PROBS][END_TAG][tag]
-                if curr_prob < final_best_prob:
-                    final_best_prob = best_prob
+                if curr_prob > final_best_prob:
+                    final_best_prob = curr_prob
                     final_best_tag = tag
+            # now backtracking from the final best tag
             best_tags = []
             curr_backpointer = final_best_tag
-            # backtracking
-            for i in range(len(backpointers) - 1, 0, -1):
+            for i in range(len(backpointers)-1, -1, -1):
                 best_tags.append(curr_backpointer)
                 curr_backpointer = backpointers[i][curr_backpointer]
-            print(len(words))
-            print(len(best_tags))
-            print(best_tags)
-
+            best_tags.append(curr_backpointer)
+            best_tags.reverse()
+            tagged_sentence = ""
+            for i in range(len(words)):
+                tagged_sentence = tagged_sentence + words[i] + "/" + best_tags[i] + " "
+            tagged_sentence = tagged_sentence + "\n"
+            with open(out_file, 'a') as wf:
+                wf.write(tagged_sentence)
     print('Finished...')
 
 def get_max(curr_tag, prev_dict, tag_bicount_probs):
-    best_prob = sys.maxsize # probabiltiy for the best path
+    best_prob = - sys.maxsize - 1  # probabiltiy for the best path
     best_tag = ""
     for prev_tag in TAGS:
         curr_prob = prev_dict[prev_tag] + tag_bicount_probs[prev_tag][curr_tag]
-        if curr_prob < best_prob:
+        if curr_prob > best_prob:
             best_prob = curr_prob
             best_tag = prev_tag
     return best_prob, best_tag
