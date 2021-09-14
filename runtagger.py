@@ -83,6 +83,32 @@ class WordToken:
         self.probs = {}
         self.backpointers = {}
 
+def get_max(curr_tag, prev_word_token, tag_tag_probs):
+    max_prob = - sys.maxsize - 1
+    max_tag = ""
+    for prev_tag in prev_word_token.probs:
+        if curr_tag in tag_tag_probs[prev_tag]:
+            curr_prob = prev_word_token.probs[prev_tag] + tag_tag_probs[prev_tag][curr_tag]
+            if curr_prob > max_prob:
+                max_prob = curr_prob
+                max_tag = prev_tag
+    return max_prob, max_tag
+
+def get_unknown_prob(tag, word, data):
+    unknown_prob = 0
+    if word.istitle():
+        unknown_prob += data[CAP_INITIAL_PROBS].get(tag, 0)
+    word = word.lower()
+    if tag in data[UNKNOWN_PROBS]:
+        unknown_prob += data[UNKNOWN_PROBS][tag]
+    for suffix in SUFFIXES:
+        if word.endswith(suffix):
+            unknown_prob += data[SUFFIX_PROBS][suffix].get(tag, 0)
+            break
+    if HYPHEN in word:
+        unknown_prob += data[HYPH_PROBS].get(tag, 0)
+    return unknown_prob
+
 def tag_sentence(test_file, model_file, out_file):
     # write your code here. You can add functions as well.
     with open(model_file, 'r') as rf:
@@ -102,19 +128,26 @@ def tag_sentence(test_file, model_file, out_file):
                     if tag in data[WORD_TAG_PROBS][first_word]:
                         word_tokens[0].probs[tag] = data[TAG_TAG_PROBS][START_TAG][tag] + data[WORD_TAG_PROBS][first_word][tag]
                 else: # we need P(unknownword|tag)
-                    unknown_prob = 0
-                    if tag in data[UNKNOWN_PROBS]:
-                        unknown_prob += data[UNKNOWN_PROBS][tag]
-                    for suffix in SUFFIXES:
-                        if first_word.endswith(suffix):
-                            unknown_prob += data[SUFFIX_PROBS][suffix][tag]
-                            break
-                    if HYPHEN in first_word:
-                        unknown_prob += data[HYPH_PROBS][tag]
-                    if (word_tokens[0].word).istitle():
-                        unknown_prob += data[CAP_INITIAL_PROBS][tag]
+                    unknown_prob = get_unknown_prob(tag, word_tokens[0].word, data)
                     if unknown_prob != 0:
                         word_tokens[0].probs[tag] = unknown_prob
+            # recursive step
+            for i in range(1, len(word_tokens)):
+                for curr_tag in TAGS:
+                    max_prob, max_tag = get_max(curr_tag, word_tokens[i-1], data[TAG_TAG_PROBS])
+                    if max_tag != "": # P(curr_tag|prev_tag) is seen
+                        word_tokens[i].backpointers[curr_tag] = max_tag
+                        curr_word = word_tokens[i].word.lower()
+                        if curr_word in data[WORD_TAG_PROBS]:
+                            if curr_tag in data[WORD_TAG_PROBS][curr_word]:
+                                word_tokens[i].probs[curr_tag] = max_prob + data[WORD_TAG_PROBS][curr_word][curr_tag]
+                        else:
+                            unknown_prob = get_unknown_prob(curr_tag, word_tokens[i].word, data)
+                            if unknown_prob != 0:
+                                word_tokens[i].probs[curr_tag] = max_prob + unknown_prob
+            # to find P(end|tag)
+            max_prob, max_tag = get_max(END_TAG, word_tokens[len(word_tokens) - 1], data[TAG_TAG_PROBS])
+            
             #print(word_tokens[0].probs)
             # for i in range(1, len(word_tokens)):
             #     curr_word = word_tokens[i].word
@@ -150,15 +183,15 @@ def tag_sentence(test_file, model_file, out_file):
             #     wf.write(tagged_sentence)
     print('Finished...')
 
-def get_max(curr_tag, prev_dict, tag_bicount_probs):
-    best_prob = - sys.maxsize - 1  # probabiltiy for the best path
-    best_tag = ""
-    for prev_tag in TAGS:
-        curr_prob = prev_dict[prev_tag] + tag_bicount_probs[prev_tag][curr_tag]
-        if curr_prob > best_prob:
-            best_prob = curr_prob
-            best_tag = prev_tag
-    return best_prob, best_tag
+# def get_max(curr_tag, prev_dict, tag_bicount_probs):
+#     best_prob = - sys.maxsize - 1  # probabiltiy for the best path
+#     best_tag = ""
+#     for prev_tag in TAGS:
+#         curr_prob = prev_dict[prev_tag] + tag_bicount_probs[prev_tag][curr_tag]
+#         if curr_prob > best_prob:
+#             best_prob = curr_prob
+#             best_tag = prev_tag
+#     return best_prob, best_tag
 
 if __name__ == "__main__":
     # make no changes here
