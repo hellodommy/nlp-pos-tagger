@@ -85,8 +85,13 @@ data[CAP_INITIAL_COUNT] = {}
 data[HYPH_COUNT] = {}
 data[SUFFIX_COUNT] = {}
 data[UNKNOWN_COUNT] = {}
+data[CAP_INITIAL_PROBS] = {}
+data[HYPH_PROBS] = {}
+data[SUFFIX_PROBS] = {}
 
 SUFFIXES = ["age", "al", "ance", "ence", "dom", "ee", "er", "or", "hood", "ism", "ist", "ity", "ty", "ment", "ness", "ry", "ship", "sion", "tion", "xion", "able", "ible", "al", "en", "ese", "ful", "i", "ic", "ish", "ive", "ian", "less", "ly", "ous", "y", "ate", "en", "ify", "ize", "ise", "ward", "wards", "wise", "s", "ed", "ing"] 
+
+# TODO: write only probabilities to the data file - runtagger does not need counts
 
 def train_model(train_file, model_file):
     # write your code here. You can add functions as well.
@@ -100,7 +105,7 @@ def train_model(train_file, model_file):
             tags = [word_with_tag.rsplit('/', 1)[1]
                      for word_with_tag in words_with_tags]
             for i in range(len(words_with_tags)):
-                # remove WORD_COUNTS if not needed
+                # TODO: remove WORD_COUNTS if not needed
                 curr_tag = tags[i]
                 word = words[i]
                 # start collecting counts for unknown words later
@@ -152,7 +157,7 @@ def train_model(train_file, model_file):
             for tag in tags:
                 data[WORD_TAG_PROBS][word][tag] = math.log((data[WORD_TAG_COUNTS][word][tag])/(data[TAG_COUNTS][tag]), 10)
         # for P(tag|tag)
-        # todo P(unseen tag | seen tag)
+        # todo P(unseen tag | seen tag)??
         for first_tag in data[TAG_TAG_COUNTS]:
             data[TAG_TAG_PROBS][first_tag] = {}
             for second_tag in data[TAG_TAG_COUNTS][first_tag]:
@@ -160,6 +165,16 @@ def train_model(train_file, model_file):
                     data[TAG_TAG_PROBS][first_tag][second_tag] = math.log((data[TAG_TAG_COUNTS][first_tag][second_tag])/(len(lines)), 10)
                 else:
                     data[TAG_TAG_PROBS][first_tag][second_tag] = math.log((data[TAG_TAG_COUNTS][first_tag][second_tag])/(data[TAG_COUNTS][first_tag]), 10)
+        # for P(capital|t)
+        for tag in data[CAP_INITIAL_COUNT]:
+            data[CAP_INITIAL_PROBS][tag] = math.log((data[CAP_INITIAL_COUNT][tag])/(data[TAG_COUNTS][tag]), 10)
+        # for P(hyphen|t)
+        for tag in data[HYPH_COUNT]:
+            data[HYPH_PROBS][tag] = math.log((data[HYPH_COUNT][tag])/(data[TAG_COUNTS][tag]), 10)
+        for suffix in data[SUFFIX_COUNT]:
+            data[SUFFIX_PROBS][suffix] = {}
+            for tag in data[SUFFIX_COUNT][suffix]:
+                data[SUFFIX_PROBS][suffix][tag] = math.log((data[SUFFIX_COUNT][suffix][tag])/(data[TAG_COUNTS][tag]), 10)
 
     with open(model_file, 'w') as wf:
         json_obj = json.dumps(data, indent=2)
