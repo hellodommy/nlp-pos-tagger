@@ -147,40 +147,19 @@ def tag_sentence(test_file, model_file, out_file):
                                 word_tokens[i].probs[curr_tag] = max_prob + unknown_prob
             # to find P(end|tag)
             max_prob, max_tag = get_max(END_TAG, word_tokens[len(word_tokens) - 1], data[TAG_TAG_PROBS])
-            
-            #print(word_tokens[0].probs)
-            # for i in range(1, len(word_tokens)):
-            #     curr_word = word_tokens[i].word
-            #     curr_backpointers = dict.fromkeys(TAGS)
-            #     for tag in TAGS:
-            #         best_prob, best_tag = get_max(tag, word_tokens[i - 1].transition_probs, data[TAG_BICOUNT_PROBS])
-            #         word_tokens[i].transition_probs[tag] = best_prob + data[WORD_TAG_PROBS][curr_word][tag]
-            #         curr_backpointers[tag] = best_tag
-            #     backpointers.append(curr_backpointers)
-
-            # # termination
-            # # finding the final best tag
-            # final_best_tag = ""
-            # final_best_prob = - sys.maxsize - 1
-            # for tag in TAGS:
-            #     curr_prob = word_tokens[len(word_tokens)-1].transition_probs[tag] + data[TAG_BICOUNT_PROBS][END_TAG][tag]
-            #     if curr_prob > final_best_prob:
-            #         final_best_prob = curr_prob
-            #         final_best_tag = tag
-            # # now backtracking from the final best tag
-            # best_tags = []
-            # curr_backpointer = final_best_tag
-            # for i in range(len(backpointers)-1, -1, -1):
-            #     best_tags.append(curr_backpointer)
-            #     curr_backpointer = backpointers[i][curr_backpointer]
-            # best_tags.append(curr_backpointer)
-            # best_tags.reverse()
-            # tagged_sentence = ""
-            # for i in range(len(words)):
-            #     tagged_sentence = tagged_sentence + words[i] + "/" + best_tags[i] + " "
-            # tagged_sentence = tagged_sentence + "\n"
-            # with open(out_file, 'a') as wf:
-            #     wf.write(tagged_sentence)
+            best_tags = []
+            curr_backpointer = max_tag
+            for i in range(len(word_tokens) - 1, 0, -1):
+                best_tags.append(curr_backpointer)
+                curr_backpointer = word_tokens[i].backpointers[curr_backpointer]
+            best_tags.append(curr_backpointer)
+            best_tags.reverse()
+            tagged_sentence = ""
+            for i in range(len(word_tokens)):
+                tagged_sentence = tagged_sentence + word_tokens[i].word + "/" + best_tags[i] + " "
+            tagged_sentence = tagged_sentence + "\n"
+            with open(out_file, 'a') as wf:
+                wf.write(tagged_sentence)
     print('Finished...')
 
 # def get_max(curr_tag, prev_dict, tag_bicount_probs):
