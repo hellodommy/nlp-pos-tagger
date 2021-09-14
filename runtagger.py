@@ -8,13 +8,20 @@ import json
 
 WORD_COUNTS = 'WORD_COUNTS'
 TAG_COUNTS = 'TAG_COUNTS'
-TAG_BICOUNTS = 'TAG_BICOUNTS'  # P(t(i-1), t(i))
+CAP_INITIAL_COUNT = 'CAP_INITIAL_COUNT'
+HYPH_COUNT = 'HYPH_COUNT'
+SUFFIX_COUNT = 'SUFFIX_COUNT'
+UNKNOWN_COUNT = 'UNKNOWN_COUNT'
+TAG_TAG_COUNTS = 'TAG_TAG_COUNTS'  # P(t(i-1), t(i))
 WORD_TAG_COUNTS = 'WORD_TAG_COUNTS'
 WORD_TAG_PROBS = 'WORD_TAG_PROBS'
-TAG_BICOUNT_PROBS = 'TAG_BICOUNT_PROBS'
-START_TAG = '<s>'
-END_TAG = '</s>'
-UNK = '<UNK>'
+TAG_TAG_PROBS = 'TAG_TAG_PROBS'
+CAP_INITIAL_PROBS = 'CAP_INITIAL_PROBS'
+HYPH_PROBS = 'HYPH_PROBS'
+SUFFIX_PROBS = 'SUFFIX_PROBS'
+UNKNOWN_PROBS = 'UNKNOWN_PROB'  # P(unknown word|t)
+START_TAG = '<start>'
+END_TAG = '</end>'
 TAGS = {
     '``': 0,
     '#': 1,
@@ -63,14 +70,18 @@ TAGS = {
     'WRB': 44,
 }
 NUM_PENN_TAGS = len(TAGS)
+HYPHEN = '-'
+UNK = '<UNK>'
+
+SUFFIXES = ["age", "al", "ance", "ence", "dom", "ee", "er", "or", "hood", "ism", "ist", "ity", "ty", "ment", "ness", "ry", "ship", "sion", "tion", "xion", "able", "ible", "al", "en", "ese", "ful", "i", "ic", "ish", "ive", "ian", "less", "ly", "ous", "y", "ate", "en", "ify", "ize", "ise", "ward", "wards", "wise", "s", "ed", "ing"]
 
 data = {}
 
 class WordToken:
     def __init__(self, word):
         self.word = word
-        self.transition_probs = {}
-        self.state_obs_likelihoods = {}
+        self.probs = {}
+        self.backpointers = {}
 
 def tag_sentence(test_file, model_file, out_file):
     # write your code here. You can add functions as well.
@@ -83,45 +94,60 @@ def tag_sentence(test_file, model_file, out_file):
             word_tokens = []
             backpointers = []
             for word in words:
-                if word in data[WORD_COUNTS]:
-                    word_tokens.append(WordToken(word))
-                else:
-                    word_tokens.append(WordToken(UNK))
+                word_tokens.append(WordToken(word))
             # init
-            for tag in TAGS:
-                word_tokens[0].transition_probs[tag] = data[TAG_BICOUNT_PROBS][START_TAG][tag] + data[WORD_TAG_PROBS][word_tokens[0].word][tag]
-            for i in range(1, len(word_tokens)):
-                curr_word = word_tokens[i].word
-                curr_backpointers = dict.fromkeys(TAGS)
-                for tag in TAGS:
-                    best_prob, best_tag = get_max(tag, word_tokens[i - 1].transition_probs, data[TAG_BICOUNT_PROBS])
-                    word_tokens[i].transition_probs[tag] = best_prob + data[WORD_TAG_PROBS][curr_word][tag]
-                    curr_backpointers[tag] = best_tag
-                backpointers.append(curr_backpointers)
+            for tag in data[TAG_TAG_PROBS][START_TAG]:
+                first_word = word_tokens[0].word.lower()
+                if first_word in data[WORD_TAG_PROBS]:
+                    if tag in data[WORD_TAG_PROBS][first_word]:
+                        word_tokens[0].probs[tag] = data[TAG_TAG_PROBS][START_TAG][tag] + data[WORD_TAG_PROBS][first_word][tag]
+                else: # we need P(unknownword|tag)
+                    unknown_prob = 0
+                    if tag in data[UNKNOWN_PROBS]:
+                        unknown_prob += data[UNKNOWN_PROBS][tag]
+                    for suffix in SUFFIXES:
+                        if first_word.endswith(suffix):
+                            unknown_prob += data[SUFFIX_PROBS][suffix][tag]
+                            break
+                    if HYPHEN in first_word:
+                        unknown_prob += data[HYPH_PROBS][tag]
+                    if (word_tokens[0].word).istitle():
+                        unknown_prob += data[CAP_INITIAL_PROBS][tag]
+                    if unknown_prob != 0:
+                        word_tokens[0].probs[tag] = unknown_prob
+            #print(word_tokens[0].probs)
+            # for i in range(1, len(word_tokens)):
+            #     curr_word = word_tokens[i].word
+            #     curr_backpointers = dict.fromkeys(TAGS)
+            #     for tag in TAGS:
+            #         best_prob, best_tag = get_max(tag, word_tokens[i - 1].transition_probs, data[TAG_BICOUNT_PROBS])
+            #         word_tokens[i].transition_probs[tag] = best_prob + data[WORD_TAG_PROBS][curr_word][tag]
+            #         curr_backpointers[tag] = best_tag
+            #     backpointers.append(curr_backpointers)
 
-            # termination
-            # finding the final best tag
-            final_best_tag = ""
-            final_best_prob = - sys.maxsize - 1
-            for tag in TAGS:
-                curr_prob = word_tokens[len(word_tokens)-1].transition_probs[tag] + data[TAG_BICOUNT_PROBS][END_TAG][tag]
-                if curr_prob > final_best_prob:
-                    final_best_prob = curr_prob
-                    final_best_tag = tag
-            # now backtracking from the final best tag
-            best_tags = []
-            curr_backpointer = final_best_tag
-            for i in range(len(backpointers)-1, -1, -1):
-                best_tags.append(curr_backpointer)
-                curr_backpointer = backpointers[i][curr_backpointer]
-            best_tags.append(curr_backpointer)
-            best_tags.reverse()
-            tagged_sentence = ""
-            for i in range(len(words)):
-                tagged_sentence = tagged_sentence + words[i] + "/" + best_tags[i] + " "
-            tagged_sentence = tagged_sentence + "\n"
-            with open(out_file, 'a') as wf:
-                wf.write(tagged_sentence)
+            # # termination
+            # # finding the final best tag
+            # final_best_tag = ""
+            # final_best_prob = - sys.maxsize - 1
+            # for tag in TAGS:
+            #     curr_prob = word_tokens[len(word_tokens)-1].transition_probs[tag] + data[TAG_BICOUNT_PROBS][END_TAG][tag]
+            #     if curr_prob > final_best_prob:
+            #         final_best_prob = curr_prob
+            #         final_best_tag = tag
+            # # now backtracking from the final best tag
+            # best_tags = []
+            # curr_backpointer = final_best_tag
+            # for i in range(len(backpointers)-1, -1, -1):
+            #     best_tags.append(curr_backpointer)
+            #     curr_backpointer = backpointers[i][curr_backpointer]
+            # best_tags.append(curr_backpointer)
+            # best_tags.reverse()
+            # tagged_sentence = ""
+            # for i in range(len(words)):
+            #     tagged_sentence = tagged_sentence + words[i] + "/" + best_tags[i] + " "
+            # tagged_sentence = tagged_sentence + "\n"
+            # with open(out_file, 'a') as wf:
+            #     wf.write(tagged_sentence)
     print('Finished...')
 
 def get_max(curr_tag, prev_dict, tag_bicount_probs):

@@ -22,7 +22,6 @@ SUFFIX_PROBS = 'SUFFIX_PROBS'
 UNKNOWN_PROBS = 'UNKNOWN_PROB' # P(unknown word|t)
 START_TAG = '<start>'
 END_TAG = '</end>'
-UNK = '<UNK>'
 TAGS = {
     '``': 0,
     '#': 1,
@@ -88,6 +87,7 @@ data[UNKNOWN_COUNT] = {}
 data[CAP_INITIAL_PROBS] = {}
 data[HYPH_PROBS] = {}
 data[SUFFIX_PROBS] = {}
+data[UNKNOWN_PROBS] = {}
 
 SUFFIXES = ["age", "al", "ance", "ence", "dom", "ee", "er", "or", "hood", "ism", "ist", "ity", "ty", "ment", "ness", "ry", "ship", "sion", "tion", "xion", "able", "ible", "al", "en", "ese", "ful", "i", "ic", "ish", "ive", "ian", "less", "ly", "ous", "y", "ate", "en", "ify", "ize", "ise", "ward", "wards", "wise", "s", "ed", "ing"] 
 
@@ -175,6 +175,9 @@ def train_model(train_file, model_file):
             data[SUFFIX_PROBS][suffix] = {}
             for tag in data[SUFFIX_COUNT][suffix]:
                 data[SUFFIX_PROBS][suffix][tag] = math.log((data[SUFFIX_COUNT][suffix][tag])/(data[TAG_COUNTS][tag]), 10)
+        # for P(unknownword|t)
+        for tag in data[UNKNOWN_COUNT]:
+            data[UNKNOWN_PROBS][tag] = math.log((data[UNKNOWN_COUNT][tag])/(data[TAG_COUNTS][tag]), 10)
 
     with open(model_file, 'w') as wf:
         json_obj = json.dumps(data, indent=2)
