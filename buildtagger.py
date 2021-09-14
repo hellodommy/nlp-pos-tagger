@@ -129,7 +129,7 @@ def train_model(train_file, model_file):
                 if tag in data[WORD_TAG_COUNTS][word]:
                     data[WORD_TAG_PROBS][word][tag] = math.log(((data[WORD_TAG_COUNTS][word][tag] + 1)/(data[TAG_COUNTS][tag] + NUM_PENN_TAGS)), 10)
                 else:
-                    data[WORD_TAG_PROBS][word][tag] = math.log((1/(data[TAG_COUNTS][tag] + NUM_PENN_TAGS)), 10)
+                    data[WORD_TAG_PROBS][word][tag] = -sys.maxsize
         data[WORD_TAG_PROBS][UNK] = {} # unseen word-tags
         for tag in TAGS:
             data[WORD_TAG_PROBS][UNK][tag] = math.log((1/(data[TAG_COUNTS][tag] + NUM_PENN_TAGS)), 10)
