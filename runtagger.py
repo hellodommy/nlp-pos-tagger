@@ -83,6 +83,18 @@ class WordToken:
         self.probs = {}
         self.backpointers = {}
 
+
+def get_max_lenient(curr_word, prev_word_token, word_tag_probs):
+    max_prob = - sys.maxsize - 1
+    max_tag = ""
+    for prev_tag in prev_word_token.probs:
+        for curr_tag in word_tag_probs[curr_word]:
+            curr_prob = prev_word_token.probs[prev_tag] + word_tag_probs[curr_word][curr_tag]
+            if curr_prob > max_prob:
+                max_prob = curr_prob
+                max_tag = prev_tag
+    return max_prob, max_tag
+
 def get_max(curr_tag, prev_word_token, tag_tag_probs):
     max_prob = - sys.maxsize - 1
     max_tag = ""
@@ -133,11 +145,11 @@ def tag_sentence(test_file, model_file, out_file):
                         word_tokens[0].probs[tag] = unknown_prob
             # recursive step
             for i in range(1, len(word_tokens)):
+                curr_word = word_tokens[i].word.lower()
                 for curr_tag in TAGS:
                     max_prob, max_tag = get_max(curr_tag, word_tokens[i-1], data[TAG_TAG_PROBS])
                     if max_tag != "": # P(curr_tag|prev_tag) is seen
                         word_tokens[i].backpointers[curr_tag] = max_tag
-                        curr_word = word_tokens[i].word.lower()
                         if curr_word in data[WORD_TAG_PROBS]:
                             if curr_tag in data[WORD_TAG_PROBS][curr_word]:
                                 word_tokens[i].probs[curr_tag] = max_prob + data[WORD_TAG_PROBS][curr_word][curr_tag]
@@ -145,7 +157,13 @@ def tag_sentence(test_file, model_file, out_file):
                             unknown_prob = get_unknown_prob(curr_tag, word_tokens[i].word, data)
                             if unknown_prob != 0:
                                 word_tokens[i].probs[curr_tag] = max_prob + unknown_prob
-            # to find P(end|tag)
+                if not word_tokens[i].probs: # special case where no POS tag can be associated with this word
+                    if curr_word in data[WORD_TAG_PROBS]:
+                        max_prob, max_tag = get_max_lenient(curr_word, word_tokens[i - 1], data[WORD_TAG_PROBS])
+                        if max_tag != "":
+                            word_tokens[i].probs[curr_tag] = max_prob
+                            word_tokens[i].backpointers[curr_tag] = max_tag
+                    # TODO: for curr word not seen
             max_prob, max_tag = get_max(END_TAG, word_tokens[len(word_tokens) - 1], data[TAG_TAG_PROBS])
             best_tags = []
             curr_backpointer = max_tag
