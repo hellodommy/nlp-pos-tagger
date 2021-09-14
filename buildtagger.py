@@ -8,10 +8,18 @@ import json
 
 WORD_COUNTS = 'WORD_COUNTS'
 TAG_COUNTS = 'TAG_COUNTS'
+CAP_INITIAL_COUNT = 'CAP_INITIAL_COUNT'
+HYPH_COUNT = 'HYPH_COUNT'
+SUFFIX_COUNT = 'SUFFIX_COUNT'
+UNKNOWN_COUNT = 'UNKNOWN_COUNT'
 TAG_TAG_COUNTS = 'TAG_TAG_COUNTS' # P(t(i-1), t(i))
 WORD_TAG_COUNTS = 'WORD_TAG_COUNTS'
 WORD_TAG_PROBS = 'WORD_TAG_PROBS'
 TAG_TAG_PROBS = 'TAG_TAG_PROBS'
+CAP_INITIAL_PROBS = 'CAP_INITIAL_PROBS'
+HYPH_PROBS = 'HYPH_PROBS'
+SUFFIX_PROBS = 'SUFFIX_PROBS'
+UNKNOWN_PROBS = 'UNKNOWN_PROB' # P(unknown word|t)
 START_TAG = '<start>'
 END_TAG = '</end>'
 UNK = '<UNK>'
@@ -63,6 +71,7 @@ TAGS = {
     'WRB': 44,
 }
 NUM_PENN_TAGS = len(TAGS)
+HYPHEN = '-'
 
 data = {}
 data[WORD_COUNTS] = {}
@@ -72,6 +81,12 @@ data[WORD_TAG_COUNTS] = {}
 data[TAG_TAG_COUNTS][START_TAG] = {}
 data[TAG_TAG_PROBS] = {}
 data[WORD_TAG_PROBS] = {}
+data[CAP_INITIAL_COUNT] = {}
+data[HYPH_COUNT] = {}
+data[SUFFIX_COUNT] = {}
+data[UNKNOWN_COUNT] = {}
+
+SUFFIXES = ["age", "al", "ance", "ence", "dom", "ee", "er", "or", "hood", "ism", "ist", "ity", "ty", "ment", "ness", "ry", "ship", "sion", "tion", "xion", "able", "ible", "al", "en", "ese", "ful", "i", "ic", "ish", "ive", "ian", "less", "ly", "ous", "y", "ate", "en", "ify", "ize", "ise", "ward", "wards", "wise", "s", "ed", "ing"] 
 
 def train_model(train_file, model_file):
     # write your code here. You can add functions as well.
@@ -80,33 +95,71 @@ def train_model(train_file, model_file):
         lines = rf.readlines()
         for line in lines: # collecting counts
             words_with_tags = line.rstrip().split(' ')
-            words = [word_with_tag.rsplit('/', 1)[0].lower()
+            words = [word_with_tag.rsplit('/', 1)[0]
                      for word_with_tag in words_with_tags]
             tags = [word_with_tag.rsplit('/', 1)[1]
                      for word_with_tag in words_with_tags]
             for i in range(len(words_with_tags)):
                 # remove WORD_COUNTS if not needed
-                data[WORD_COUNTS][words[i]] = data[WORD_COUNTS].get(words[i], 0) + 1
-                data[TAG_COUNTS][tags[i]] = data[TAG_COUNTS].get(tags[i], 0) + 1
-                if i == 1:
-                    data[TAG_TAG_COUNTS][START_TAG][tags[i]] = data[TAG_TAG_COUNTS][START_TAG].get(tags[i], 0) + 1
-                if words[i] in data[WORD_TAG_COUNTS]:
-                    data[WORD_TAG_COUNTS][words[i]][tags[i]] = data[WORD_TAG_COUNTS][words[i]].get(tags[i], 0) + 1
+                curr_tag = tags[i]
+                word = words[i]
+                # start collecting counts for unknown words later
+                if word.istitle():
+                    data[CAP_INITIAL_COUNT][curr_tag] = data[CAP_INITIAL_COUNT].get(curr_tag, 0) + 1
+                if HYPHEN in word:
+                    data[HYPH_COUNT][curr_tag] = data[HYPH_COUNT].get(curr_tag, 0) + 1
+                word = word.lower()
+                for suffix in SUFFIXES:
+                    if word.endswith(suffix):
+                        if suffix in data[SUFFIX_COUNT]:
+                            data[SUFFIX_COUNT][suffix][curr_tag] = data[SUFFIX_COUNT][suffix].get(curr_tag, 0) + 1
+                        else:
+                            data[SUFFIX_COUNT][suffix] = {}
+                            data[SUFFIX_COUNT][suffix][curr_tag] = 1
+                # end collecting counts for unknown words later
+                data[WORD_COUNTS][word] = data[WORD_COUNTS].get(word, 0) + 1
+                data[TAG_COUNTS][curr_tag] = data[TAG_COUNTS].get(curr_tag, 0) + 1
+                if i == 1: # special case for first word
+                    data[TAG_TAG_COUNTS][START_TAG][curr_tag] = data[TAG_TAG_COUNTS][START_TAG].get(curr_tag, 0) + 1
+                if word in data[WORD_TAG_COUNTS]:
+                    data[WORD_TAG_COUNTS][word][curr_tag] = data[WORD_TAG_COUNTS][word].get(curr_tag, 0) + 1
                 else:
-                    data[WORD_TAG_COUNTS][words[i]] = {}
-                    data[WORD_TAG_COUNTS][words[i]][tags[i]] = 1
+                    data[WORD_TAG_COUNTS][word] = {}
+                    data[WORD_TAG_COUNTS][word][curr_tag] = 1
                 if i != len(words_with_tags) - 1: # if not last word
-                    if tags[i] in data[TAG_TAG_COUNTS]:
-                        data[TAG_TAG_COUNTS][tags[i]][tags[i + 1]] = data[TAG_TAG_COUNTS][tags[i]].get(tags[i + 1], 0) + 1
+                    next_tag = tags[i + 1]
+                    if curr_tag in data[TAG_TAG_COUNTS]:
+                        data[TAG_TAG_COUNTS][curr_tag][next_tag] = data[TAG_TAG_COUNTS][curr_tag].get(next_tag, 0) + 1
                     else:
-                        data[TAG_TAG_COUNTS][tags[i]] = {}
-                        data[TAG_TAG_COUNTS][tags[i]][tags[i + 1]] = 1
+                        data[TAG_TAG_COUNTS][curr_tag] = {}
+                        data[TAG_TAG_COUNTS][curr_tag][next_tag] = 1
                 else: # is last word
-                    if tags[i] in data[TAG_TAG_COUNTS]:
-                        data[TAG_TAG_COUNTS][tags[i]][END_TAG] = data[TAG_TAG_COUNTS][tags[i]].get(END_TAG, 0) + 1
+                    if curr_tag in data[TAG_TAG_COUNTS]:
+                        data[TAG_TAG_COUNTS][curr_tag][END_TAG] = data[TAG_TAG_COUNTS][curr_tag].get(END_TAG, 0) + 1
                     else:
-                        data[TAG_TAG_COUNTS][tags[i]] = {}
-                        data[TAG_TAG_COUNTS][tags[i]][END_TAG] = 1
+                        data[TAG_TAG_COUNTS][curr_tag] = {}
+                        data[TAG_TAG_COUNTS][curr_tag][END_TAG] = 1
+        # collecting unknown word count (singletons)
+        for word in data[WORD_TAG_COUNTS]:
+            for tag in data[WORD_TAG_COUNTS][word]:
+                if data[WORD_TAG_COUNTS][word][tag] == 1:
+                    data[UNKNOWN_COUNT][tag] = data[UNKNOWN_COUNT].get(tag, 0) + 1
+        # calculate probabiltiies
+        # for P(word|tag)
+        for word in data[WORD_TAG_COUNTS]:
+            data[WORD_TAG_PROBS][word] = {}
+            tags = data[WORD_TAG_COUNTS][word]
+            for tag in tags:
+                data[WORD_TAG_PROBS][word][tag] = math.log((data[WORD_TAG_COUNTS][word][tag])/(data[TAG_COUNTS][tag]), 10)
+        # for P(tag|tag)
+        # todo P(unseen tag | seen tag)
+        for first_tag in data[TAG_TAG_COUNTS]:
+            data[TAG_TAG_PROBS][first_tag] = {}
+            for second_tag in data[TAG_TAG_COUNTS][first_tag]:
+                if first_tag == START_TAG:
+                    data[TAG_TAG_PROBS][first_tag][second_tag] = math.log((data[TAG_TAG_COUNTS][first_tag][second_tag])/(len(lines)), 10)
+                else:
+                    data[TAG_TAG_PROBS][first_tag][second_tag] = math.log((data[TAG_TAG_COUNTS][first_tag][second_tag])/(data[TAG_COUNTS][first_tag]), 10)
 
     with open(model_file, 'w') as wf:
         json_obj = json.dumps(data, indent=2)
