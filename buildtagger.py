@@ -8,20 +8,22 @@ import json
 
 WORD_COUNTS = 'WORD_COUNTS'
 TAG_COUNTS = 'TAG_COUNTS'
-CAP_INITIAL_COUNT = 'CAP_INITIAL_COUNT'
-HYPH_COUNT = 'HYPH_COUNT'
-SUFFIX_COUNT = 'SUFFIX_COUNT'
-UNKNOWN_COUNT = 'UNKNOWN_COUNT'
+CAP_INITIAL_COUNTS = 'CAP_INITIAL_COUNTS'
+HYPH_COUNTS = 'HYPH_COUNTS'
+SUFFIX_COUNTS = 'SUFFIX_COUNTS'
+UNKNOWN_COUNTS = 'UNKNOWN_COUNTS'
 TAG_TAG_COUNTS = 'TAG_TAG_COUNTS' # P(t(i-1), t(i))
 WORD_TAG_COUNTS = 'WORD_TAG_COUNTS'
+COUNTS = [WORD_COUNTS, TAG_COUNTS, CAP_INITIAL_COUNTS, HYPH_COUNTS, SUFFIX_COUNTS, UNKNOWN_COUNTS, WORD_TAG_COUNTS, TAG_TAG_COUNTS]
 WORD_TAG_PROBS = 'WORD_TAG_PROBS'
 TAG_TAG_PROBS = 'TAG_TAG_PROBS'
-CAP_INITIAL_PROBS = 'CAP_INITIAL_PROBS'
-HYPH_PROBS = 'HYPH_PROBS'
-SUFFIX_PROBS = 'SUFFIX_PROBS'
-UNKNOWN_PROBS = 'UNKNOWN_PROB' # P(unknown word|t)
+CAP_INITIAL_PROBS = 'CAP_INITIAL_PROBS' # P(title case word|t)
+HYPH_PROBS = 'HYPH_PROBS' # P(hyphenated word|t)
+SUFFIX_PROBS = 'SUFFIX_PROBS' # P(suffix|t)
+UNKNOWN_PROBS = 'UNKNOWN_PROBS'  # P(unknown word|t)
 START_TAG = '<start>'
 END_TAG = '</end>'
+HYPHEN = '-'
 TAGS = {
     '``': 0,
     '#': 1,
@@ -70,7 +72,6 @@ TAGS = {
     'WRB': 44,
 }
 NUM_PENN_TAGS = len(TAGS)
-HYPHEN = '-'
 
 data = {}
 data[WORD_COUNTS] = {}
@@ -80,10 +81,10 @@ data[WORD_TAG_COUNTS] = {}
 data[TAG_TAG_COUNTS][START_TAG] = {}
 data[TAG_TAG_PROBS] = {}
 data[WORD_TAG_PROBS] = {}
-data[CAP_INITIAL_COUNT] = {}
-data[HYPH_COUNT] = {}
-data[SUFFIX_COUNT] = {}
-data[UNKNOWN_COUNT] = {}
+data[CAP_INITIAL_COUNTS] = {}
+data[HYPH_COUNTS] = {}
+data[SUFFIX_COUNTS] = {}
+data[UNKNOWN_COUNTS] = {}
 data[CAP_INITIAL_PROBS] = {}
 data[HYPH_PROBS] = {}
 data[SUFFIX_PROBS] = {}
@@ -110,17 +111,17 @@ def train_model(train_file, model_file):
                 word = words[i]
                 # start collecting counts for unknown words later
                 if word.istitle():
-                    data[CAP_INITIAL_COUNT][curr_tag] = data[CAP_INITIAL_COUNT].get(curr_tag, 0) + 1
+                    data[CAP_INITIAL_COUNTS][curr_tag] = data[CAP_INITIAL_COUNTS].get(curr_tag, 0) + 1
                 if HYPHEN in word:
-                    data[HYPH_COUNT][curr_tag] = data[HYPH_COUNT].get(curr_tag, 0) + 1
+                    data[HYPH_COUNTS][curr_tag] = data[HYPH_COUNTS].get(curr_tag, 0) + 1
                 word = word.lower()
                 for suffix in SUFFIXES:
                     if word.endswith(suffix):
-                        if suffix in data[SUFFIX_COUNT]:
-                            data[SUFFIX_COUNT][suffix][curr_tag] = data[SUFFIX_COUNT][suffix].get(curr_tag, 0) + 1
+                        if suffix in data[SUFFIX_COUNTS]:
+                            data[SUFFIX_COUNTS][suffix][curr_tag] = data[SUFFIX_COUNTS][suffix].get(curr_tag, 0) + 1
                         else:
-                            data[SUFFIX_COUNT][suffix] = {}
-                            data[SUFFIX_COUNT][suffix][curr_tag] = 1
+                            data[SUFFIX_COUNTS][suffix] = {}
+                            data[SUFFIX_COUNTS][suffix][curr_tag] = 1
                 # end collecting counts for unknown words later
                 data[WORD_COUNTS][word] = data[WORD_COUNTS].get(word, 0) + 1
                 data[TAG_COUNTS][curr_tag] = data[TAG_COUNTS].get(curr_tag, 0) + 1
@@ -148,7 +149,7 @@ def train_model(train_file, model_file):
         for word in data[WORD_TAG_COUNTS]:
             for tag in data[WORD_TAG_COUNTS][word]:
                 if data[WORD_TAG_COUNTS][word][tag] == 1:
-                    data[UNKNOWN_COUNT][tag] = data[UNKNOWN_COUNT].get(tag, 0) + 1
+                    data[UNKNOWN_COUNTS][tag] = data[UNKNOWN_COUNTS].get(tag, 0) + 1
         # calculate probabiltiies
         # for P(word|tag)
         for word in data[WORD_TAG_COUNTS]:
@@ -166,20 +167,22 @@ def train_model(train_file, model_file):
                 else:
                     data[TAG_TAG_PROBS][first_tag][second_tag] = math.log((data[TAG_TAG_COUNTS][first_tag][second_tag])/(data[TAG_COUNTS][first_tag]), 10)
         # for P(capital|t)
-        for tag in data[CAP_INITIAL_COUNT]:
-            data[CAP_INITIAL_PROBS][tag] = math.log((data[CAP_INITIAL_COUNT][tag])/(data[TAG_COUNTS][tag]), 10)
+        for tag in data[CAP_INITIAL_COUNTS]:
+            data[CAP_INITIAL_PROBS][tag] = math.log((data[CAP_INITIAL_COUNTS][tag])/(data[TAG_COUNTS][tag]), 10)
         # for P(hyphen|t)
-        for tag in data[HYPH_COUNT]:
-            data[HYPH_PROBS][tag] = math.log((data[HYPH_COUNT][tag])/(data[TAG_COUNTS][tag]), 10)
-        for suffix in data[SUFFIX_COUNT]:
+        for tag in data[HYPH_COUNTS]:
+            data[HYPH_PROBS][tag] = math.log((data[HYPH_COUNTS][tag])/(data[TAG_COUNTS][tag]), 10)
+        for suffix in data[SUFFIX_COUNTS]:
             data[SUFFIX_PROBS][suffix] = {}
-            for tag in data[SUFFIX_COUNT][suffix]:
-                data[SUFFIX_PROBS][suffix][tag] = math.log((data[SUFFIX_COUNT][suffix][tag])/(data[TAG_COUNTS][tag]), 10)
+            for tag in data[SUFFIX_COUNTS][suffix]:
+                data[SUFFIX_PROBS][suffix][tag] = math.log((data[SUFFIX_COUNTS][suffix][tag])/(data[TAG_COUNTS][tag]), 10)
         # for P(unknownword|t)
-        for tag in data[UNKNOWN_COUNT]:
-            data[UNKNOWN_PROBS][tag] = math.log((data[UNKNOWN_COUNT][tag])/(data[TAG_COUNTS][tag]), 10)
+        for tag in data[UNKNOWN_COUNTS]:
+            data[UNKNOWN_PROBS][tag] = math.log((data[UNKNOWN_COUNTS][tag])/(data[TAG_COUNTS][tag]), 10)
 
     with open(model_file, 'w') as wf:
+        for count in COUNTS: # we do not need to store counts in model-file
+            del data[count]
         json_obj = json.dumps(data, indent=2)
         wf.write(json_obj)
     print('Finished...')

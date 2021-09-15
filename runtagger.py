@@ -6,14 +6,6 @@ import sys
 import datetime
 import json
 
-WORD_COUNTS = 'WORD_COUNTS'
-TAG_COUNTS = 'TAG_COUNTS'
-CAP_INITIAL_COUNT = 'CAP_INITIAL_COUNT'
-HYPH_COUNT = 'HYPH_COUNT'
-SUFFIX_COUNT = 'SUFFIX_COUNT'
-UNKNOWN_COUNT = 'UNKNOWN_COUNT'
-TAG_TAG_COUNTS = 'TAG_TAG_COUNTS'  # P(t(i-1), t(i))
-WORD_TAG_COUNTS = 'WORD_TAG_COUNTS'
 WORD_TAG_PROBS = 'WORD_TAG_PROBS'
 TAG_TAG_PROBS = 'TAG_TAG_PROBS'
 CAP_INITIAL_PROBS = 'CAP_INITIAL_PROBS'
@@ -71,7 +63,6 @@ TAGS = {
 }
 NUM_PENN_TAGS = len(TAGS)
 HYPHEN = '-'
-UNK = '<UNK>'
 
 SUFFIXES = ["age", "al", "ance", "ence", "dom", "ee", "er", "or", "hood", "ism", "ist", "ity", "ty", "ment", "ness", "ry", "ship", "sion", "tion", "xion", "able", "ible", "al", "en", "ese", "ful", "i", "ic", "ish", "ive", "ian", "less", "ly", "ous", "y", "ate", "en", "ify", "ize", "ise", "ward", "wards", "wise", "s", "ed", "ing"]
 
@@ -82,7 +73,6 @@ class WordToken:
         self.word = word
         self.probs = {}
         self.backpointers = {}
-
 
 def get_max_lenient(curr_word, prev_word_token, word_tag_probs):
     max_prob = - sys.maxsize - 1
@@ -179,16 +169,6 @@ def tag_sentence(test_file, model_file, out_file):
             with open(out_file, 'a') as wf:
                 wf.write(tagged_sentence)
     print('Finished...')
-
-# def get_max(curr_tag, prev_dict, tag_bicount_probs):
-#     best_prob = - sys.maxsize - 1  # probabiltiy for the best path
-#     best_tag = ""
-#     for prev_tag in TAGS:
-#         curr_prob = prev_dict[prev_tag] + tag_bicount_probs[prev_tag][curr_tag]
-#         if curr_prob > best_prob:
-#             best_prob = curr_prob
-#             best_tag = prev_tag
-#     return best_prob, best_tag
 
 if __name__ == "__main__":
     # make no changes here
